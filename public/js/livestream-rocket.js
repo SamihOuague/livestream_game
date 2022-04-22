@@ -20,10 +20,14 @@ var config = {
             this.load.spritesheet('fuel', 'assets/redsquare.png', {frameWidth: 16, frameHeight: 10});
             this.load.spritesheet('jauge', 'assets/jauge.png', {frameWidth: 50, frameHeight: 8});
             this.load.spritesheet('minifuel', 'assets/miniredsquare.png', {frameWidth: 2, frameHeight: 2});
+            this.load.spritesheet('playButton', 'assets/button.png', {frameWidth: 160, frameHeight: 80});
+            this.load.spritesheet('rose', 'assets/rose-icon.png', {frameWidth: 36, frameHeight: 36});
+            this.load.spritesheet('heart', 'assets/heart-icon.png', {frameWidth: 32, frameHeight: 32});
+            this.socket = io();
             this.vel = 0;
             this.scoreVal = 0;
             this.charged = false;
-            this.lauched = false;
+            this.launched = false;
         },
         create: function () {
             // Setup + Affichage
@@ -39,70 +43,93 @@ var config = {
             this.fire = this.add.sprite(150, 455, 'fire');
             this.fire.setScale(0.5);
             this.fire.rotation = 1.56;
-            this.physics.add.sprite(280, 390, "stock").setOrigin(0, 0)
-            this.physics.add.sprite(150, 490, "jauge").setOrigin(0.5, 0.5)
+            this.physics.add.sprite(280, 390, "stock").setOrigin(0, 0);
+            this.physics.add.sprite(150, 490, "jauge").setOrigin(0.5, 0.5);
+            this.playButton = this.physics.add.sprite(150, 300, "playButton").setOrigin(0.5, 0.5);
+            this.playIcon = this.physics.add.sprite(110, 300, "rose").setOrigin(0.5, 0.5);
+            this.playText = this.add.bitmapText(160, 300, 'atari', "START", 12).setOrigin(0.5, 0.5);
+            this.physics.add.sprite(289, 375, "rose").setOrigin(0.5, 0.5).setScale(0.7);
+            this.physics.add.sprite(115, 490, "heart").setOrigin(0.5, 0.5).setScale(0.4);
+            this.add.bitmapText(90, 490, 'atari', "tap", 8).setOrigin(0.5, 0.5);
             this.fuel = [];
             this.minifuel = [];
             this.yPos = 479;
             this.xPos = 131;
             this.fuelVolume = 0;
+            this.start = false;
+            this.socket.on("response", (msg) => {
+                console.log(msg);
+            });
         },
         update: function() {
             // Logique du jeu
-            if (this.cursors.space.isDown && !this.charged) {
-                if (this.minifuel.length < 20) {
-                    this.charged = true;
-                } else {
-                    console.log(this.minifuel.length);
-                    for (let i = 0; i < 20; i++) {
-                        this.minifuel[i].destroy();
-                    }
-                    this.minifuel = []
-                    this.xPos = 131;
-                    if (this.fuel.length < 10) {
-                        this.fuel.push(this.physics.add.sprite(281, this.yPos, "fuel").setOrigin(0, 0))
-                        this.yPos -= 9.8;
+            if (this.cursors.right.isDown && !this.start) {
+                this.playButton.destroy();
+                this.playIcon.destroy();
+                this.playText.destroy();
+                this.start = true;
+            }
+            if (this.start) {
+                if (this.cursors.space.isDown && !this.charged) {
+                    if (this.minifuel.length < 20) {
+                        this.charged = true;
                     } else {
-                        this.lauched = true;
+                        for (let i = 0; i < 20; i++) {
+                            this.minifuel[i].destroy();
+                        }
+                        this.minifuel = []
+                        this.xPos = 131;
+                        if (this.fuel.length < 10) {
+                            this.fuel.push(this.physics.add.sprite(281, this.yPos, "fuel").setOrigin(0, 0))
+                            this.fuelVolume += 100;
+                            this.yPos -= 9.8;
+                            if (this.fuel.length == 10)
+                                this.launched = true;
+                        }
                     }
+                } else if (!this.cursors.space.isDown && this.charged) {
+                    this.charged = false;
+                    this.minifuel.push(this.physics.add.sprite(this.xPos, 491, "minifuel").setOrigin(0.5, 0.5));
+                    this.xPos += 2;
                 }
-            } else if (!this.cursors.space.isDown && this.charged) {
-                this.charged = false;
-                this.minifuel.push(this.physics.add.sprite(this.xPos, 491, "minifuel").setOrigin(0.5, 0.5));
-                this.xPos += 2;
-            }
 
-            if (this.fuel.length > 0 && this.lauched) {
-                this.fire.setScale(1);
-                this.vel += 0.12;
-                this.veloc += 12;
-                this.fuelVolume -= 1;
-                if (this.fuelVolume % 100 == 0) {
-                    this.fuel[this.fuel.length - 1].destroy();
-                    this.fuel.pop();
-                    this.yPos += 9.8;
+                if (this.fuel.length > 0 && this.launched) {
+                    this.fire.setScale(1);
+                    this.vel += 0.12;
+                    this.veloc += 12;
+                    this.fuelVolume -= 1;
+                    if (this.fuelVolume % 100 == 0) {
+                        this.fuel[this.fuel.length - 1].destroy();
+                        this.fuel.pop();
+                        this.yPos += 9.8;
+                    }
+                } else if (this.launched && this.fuel.length == 0) {
+                    this.fire.setScale(0.5);
+                    if (this.vel > 0) {
+                        this.vel -= 0.11;
+                        this.veloc -= 11;
+                    }
+                } else {
+                    this.fire.setScale(0);
                 }
-            } else if (this.lauched && this.fuel.length == 0) {
-                this.fire.setScale(0.5);
-                if (this.vel > 0) {
-                    this.vel -= 0.11;
-                    this.veloc -= 11;
-                }
-            }
 
-            if (Math.round(this.vel) > 0) {
-                this.scoreVal += this.vel;
-                this.score.text = Math.round(this.scoreVal);
-                this.vitesse.text = Math.round(this.veloc);
-                this.bg._tilePosition.y -= this.vel;
-            } else {
-                this.vitesse.text = 0;
-                if (this.fuelVolume == 0 && this.lauched) {
-                    this.lauched = false;
-                    this.yPos = 479;
+                if (Math.round(this.vel) > 0 && this.launched) {
+                    this.scoreVal += this.vel;
+                    this.score.text = Math.round(this.scoreVal);
+                    this.vitesse.text = Math.round(this.veloc);
+                    this.bg._tilePosition.y -= this.vel;
+                } else if (this.launched && this.vel < 0) {
+                    this.launched = false;
+                    this.vitesse.text = 0;
+                    this.scoreVal = 0;
+                    this.playButton = this.physics.add.sprite(150, 300, "playButton").setOrigin(0.5, 0.5);
+                    this.playIcon = this.physics.add.sprite(110, 300, "rose").setOrigin(0.5, 0.5);
+                    this.playText = this.add.bitmapText(160, 300, 'atari', "START", 12).setOrigin(0.5, 0.5);
+                    this.start = false;
                 }
             }
         }
     }
 };
+
 let game = new Phaser.Game(config);
