@@ -35,7 +35,7 @@ var config = {
             this.platforms = this.physics.add.staticGroup();
             this.player = this.physics.add.sprite(150, 400, "rocket");
             this.cursors = this.input.keyboard.createCursorKeys();
-            this.scoreText = this.add.bitmapText(150, 25, 'atari', '@samm0101010', 16).setOrigin(0.5, 0.5);
+            this.scoreText = this.add.bitmapText(150, 25, 'atari', 'LIKE TO PLAY', 16).setOrigin(0.5, 0.5);
             this.score = this.add.bitmapText(150, 50, 'atari', this.scoreVal, 12).setOrigin(0.5, 0.5);
             this.add.bitmapText(150, 180, 'atari', "KM/H", 12).setOrigin(0.5, 0.5);
             this.vitesse = this.add.bitmapText(150, 150, 'atari', 0, 12).setOrigin(0.5, 0.5);
@@ -46,7 +46,7 @@ var config = {
             this.physics.add.sprite(280, 390, "stock").setOrigin(0, 0);
             this.physics.add.sprite(150, 490, "jauge").setOrigin(0.5, 0.5);
             this.playButton = this.physics.add.sprite(150, 300, "playButton").setOrigin(0.5, 0.5);
-            this.playIcon = this.physics.add.sprite(110, 300, "rose").setOrigin(0.5, 0.5);
+            this.playIcon = this.physics.add.sprite(110, 300, "heart").setOrigin(0.5, 0.5);
             this.playText = this.add.bitmapText(160, 300, 'atari', "START", 12).setOrigin(0.5, 0.5);
             this.physics.add.sprite(289, 375, "rose").setOrigin(0.5, 0.5).setScale(0.7);
             this.physics.add.sprite(115, 490, "heart").setOrigin(0.5, 0.5).setScale(0.4);
@@ -57,26 +57,38 @@ var config = {
             this.xPos = 131;
             this.fuelVolume = 0;
             this.start = false;
-            this.socket.on("response", (msg) => {
-                console.log(msg);
+
+            this.socket.on("gift", (data) => {
+                if (!this.start) {
+                    this.start = true;
+                    this.scoreText.text = "@" + data.uniqueId;
+                } else {
+                    let nb = (data.repeatCount >= 10) ? 10 : data.repeatCount;
+                    for (let i = 0; i < nb; i++) {
+                        this.fuel.push(this.physics.add.sprite(281, this.yPos, "fuel").setOrigin(0, 0))
+                        this.fuelVolume += 100;
+                        this.yPos -= 9.8;
+                    }
+                }
             });
-        },
-        update: function() {
-            // Logique du jeu
-            if (this.cursors.right.isDown && !this.start) {
-                this.playButton.destroy();
-                this.playIcon.destroy();
-                this.playText.destroy();
-                this.start = true;
-            }
-            if (this.start) {
-                if (this.cursors.space.isDown && !this.charged) {
+
+            this.socket.on("likes", (data) => {
+                if (!this.start) {
+                    this.start = true;
+                    this.scoreText.text = "@" + data.uniqueId;
+                }
+                if (this.start) {
                     if (this.minifuel.length < 20) {
-                        this.charged = true;
-                    } else {
-                        for (let i = 0; i < 20; i++) {
-                            this.minifuel[i].destroy();
+                        let nb = data.likeCount;
+                        for (let i = 0; i < nb; i++) {
+                            this.minifuel.push(this.physics.add.sprite(this.xPos, 491, "minifuel").setOrigin(0.5, 0.5));
+                            this.xPos += 2;
+                            if (this.minifuel.length > 20)
+                                break;
                         }
+                    } else {
+                        for (let i = 0; i < this.minifuel.length; i++)
+                            this.minifuel[i].destroy();
                         this.minifuel = []
                         this.xPos = 131;
                         if (this.fuel.length < 10) {
@@ -87,11 +99,15 @@ var config = {
                                 this.launched = true;
                         }
                     }
-                } else if (!this.cursors.space.isDown && this.charged) {
-                    this.charged = false;
-                    this.minifuel.push(this.physics.add.sprite(this.xPos, 491, "minifuel").setOrigin(0.5, 0.5));
-                    this.xPos += 2;
                 }
+            });
+        },
+        update: function() {
+            // Logique du jeu
+            if (this.start) {
+                this.playButton.destroy();
+                this.playIcon.destroy();
+                this.playText.destroy();
 
                 if (this.fuel.length > 0 && this.launched) {
                     this.fire.setScale(1);
@@ -123,7 +139,7 @@ var config = {
                     this.vitesse.text = 0;
                     this.scoreVal = 0;
                     this.playButton = this.physics.add.sprite(150, 300, "playButton").setOrigin(0.5, 0.5);
-                    this.playIcon = this.physics.add.sprite(110, 300, "rose").setOrigin(0.5, 0.5);
+                    this.playIcon = this.physics.add.sprite(110, 300, "heart").setOrigin(0.5, 0.5);
                     this.playText = this.add.bitmapText(160, 300, 'atari', "START", 12).setOrigin(0.5, 0.5);
                     this.start = false;
                 }
